@@ -1,5 +1,5 @@
 .code16
-.section .multiboot_header
+.section .multiboot_segment
 header_start:
 	.long 0xe85250d6
 	.long 0

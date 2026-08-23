@@ -3,11 +3,13 @@ ENTRY(_start)
 SECTIONS{
 	. = 1M;
 
-	.boot : {
+	.boot :
+	{
 		*(.multiboot_segment)
 	}
 
-	.text : {
+	.text :
+	{
 		*(.text)
 	}
 }
