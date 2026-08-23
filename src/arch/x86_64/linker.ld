@@ -1,15 +1,32 @@
 ENTRY(_start)
 
 SECTIONS{
-	. = 1M;
+	. = 2M;
 
 	.boot :
 	{
-		*(.multiboot_segment)
+		KEEP(*(.multiboot_segment))
+		*(.text)
+		*(.pre_long_mode_kernel)
 	}
 
-	.text :
+	.kernel :
 	{
-		*(.text)
+		*(.kernel)
+	}
+
+	.rodata :
+	{
+		*(.rodata)
+	}
+
+	.data :
+	{
+		*(.data)
+	}
+
+	.bss :
+	{
+		*(.bss)
 	}
 }
