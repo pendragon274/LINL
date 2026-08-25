@@ -1,10 +1,11 @@
 as -o multiboot_segment.o src/arch/x86_64/multiboot_segment.asm
 as -o boot.o src/arch/x86_64/boot.asm
+as -o pre_long_util.o src/arch/x86_64/pre_long_util.asm
 
 exit_code=$?
 if [ $exit_code -eq 0 ]; then
 	# --oformat binary
-	ld -n -o isofiles/boot/kernel.bin -T src/arch/x86_64/linker.ld multiboot_segment.o boot.o
+	ld -n -o isofiles/boot/kernel.bin -T src/arch/x86_64/linker.ld pre_long_util.o multiboot_segment.o boot.o
 	#ld -n -o isofiles/boot/kernel.bin -T src/arch/x86_64/linker.ld multiboot_segment.o
 
 	exit_code=$?

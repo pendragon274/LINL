@@ -3,29 +3,29 @@ ENTRY(_start)
 SECTIONS{
 	. = 2M;
 
-	.boot :
+	.boot BLOCK(4K) : ALIGN(4K)
 	{
 		KEEP(*(.multiboot_segment))
 		*(.text)
 		*(.pre_long_mode_kernel)
 	}
 
-	.kernel :
+	.kernel BLOCK(4K) : ALIGN(4K)
 	{
 		*(.kernel)
 	}
 
-	.rodata :
+	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
 	}
 
-	.data :
+	.data BLOCK(4K) : ALIGN(4K)
 	{
 		*(.data)
 	}
 
-	.bss :
+	.bss BLOCK(4K) : ALIGN(4K)
 	{
 		*(.bss)
 	}

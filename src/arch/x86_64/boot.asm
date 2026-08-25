@@ -1,16 +1,40 @@
+# Reference for System V ABI:
+# Parameters (in order): rdi, rsi, rdx, rcx, r8, r9, stack, return stored in rax
+# Preserved registers: rbx, rsp, rbp, r12, r13, r14, r15
+# Non-preserved registers: rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11
+
 .code32
 .section .pre_long_mode_kernel
 .globl InitLongMode
 InitLongMode:
-	#movl $0x2f4b2f4f, (0xb8000)
-	mov $stack_top, %esp
+	mov $stack_top, %esp			# Initialize stack to pre-long stack space.
+	
+	push %eax				# Save %eax as it is relevant for check_multiboot
 
+	call ClearVGA
+
+	pop %eax
 	call check_multiboot
 	call check_cpuid
 	call check_long_mode
 
-	#Print OK
-	movl $0x2f4b2f4f, (0xb8000)
+	mov $0, %edi
+	mov $22, %esi
+	mov $msg, %edx
+	mov $0x2f, %ecx
+	call PrintStrVGA
+
+	mov $0, %edi
+	mov $0, %esi
+	mov $'O', %edx
+	mov $0x2f, %ecx
+	call PrintCharVGA
+
+	mov $1, %edi
+	mov $0, %esi
+	mov $'k', %edx
+	mov $0x2f, %ecx
+	call PrintCharVGA
 
 	hlt
 
@@ -69,7 +93,10 @@ error:
 	movb %al, (0xb800a)
 	hlt
 
+.section .rodata
+msg:
+	.asciz "This is a message."
+
 .section .bss
-stack_bottom:
-	.lcomm buffer, 64
-stack_top:
+	.lcomm stack_bottom, 4096
+	stack_top:
