@@ -4,7 +4,7 @@
 # PrintCharVGA(x: int, y: int, c: char, color: u8) -> void
 .globl PrintCharVGA
 PrintCharVGA:
-	endbr32
+	endbr64
 	push %ebx
 
 	cmp $0, %edi
@@ -41,7 +41,7 @@ PrintCharVGA:
 # PrintStrVGA(x: int, y: int, str: char*, color: u8) -> void
 .globl PrintStrVGA
 PrintStrVGA:
-	endbr32
+	endbr64
 	push %ebx
 	push %ecx
 	
@@ -82,7 +82,7 @@ PrintStrVGA:
 # ClearVGA(void) -> void
 .globl ClearVGA
 ClearVGA:
-	endbr32
+	endbr64
 	
 	mov $0xb8000, %eax
 	
@@ -99,7 +99,7 @@ ClearVGA:
 # WriteCharCOM1(c: char) -> void
 .globl WriteCharCOM1
 WriteCharCOM1:
-	endbr32
+	endbr64
 	push %edx
 
 	mov $0x0, %dx
@@ -111,7 +111,7 @@ WriteCharCOM1:
 # StrLen(s: char*) -> int
 .globl StrLen
 StrLen:
-	endbr32
+	endbr64
 
 	xor %eax, %eax
 
@@ -132,40 +132,5 @@ StrLen:
 # MemCpy(arr1: int32*, arr2: int32*, len: int) -> void
 .globl MemCpy
 MemCpy:
-	endbr32
-	
-	xor %eax, %eax
-	push %edi
-	push %esi
-	push %edx
-	push %eax
-	MemCpy_loop:
-	mov 4(%esp), %edx
-	mov (%esp), %eax
-	cmp %eax, %edx
-	jle MemCpy_loop_end
-
-	mov $4, %edx
-	mul %edx
-
-	mov 12(%esp), %edi
-	add %eax, %edi
-
-	mov 8(%esp), %esi
-	add %eax, %esi
-
-	movl (%edi), %eax
-	movl %eax, (%esi)
-	
-	pop %eax
-	inc %eax
-	push %eax
-	jmp MemCpy_loop
-	MemCpy_loop_end:
-
-	pop %eax
-	pop %edx
-	pop %esi
-	pop %edi
+	endbr64
 	ret
-
