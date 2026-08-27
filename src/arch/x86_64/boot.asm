@@ -18,23 +18,31 @@ InitLongMode:
 	call check_cpuid
 	call check_long_mode
 
-	mov $0, %edi
-	mov $22, %esi
-	mov $msg, %edx
-	mov $0x2f, %ecx
+	mov $73, %edi
+	mov $0, %esi
+	mov $linl_os_txt, %edx
+	mov $0x0f, %ecx
 	call PrintStrVGA
 
+	mov $0x2f, %edx
+	call SetColor
+
+	mov $test_txt, %edi
+	call WriteStrVGA
+
+	mov $'a', %edx
+	call WriteCharVGA
+
+	mov $'b', %edx
+	call WriteCharVGA
+
+	call FlushBufferVGA
+
 	mov $0, %edi
 	mov $0, %esi
-	mov $'O', %edx
+	mov $ok_txt, %edx
 	mov $0x2f, %ecx
-	call PrintCharVGA
-
-	mov $1, %edi
-	mov $0, %esi
-	mov $'k', %edx
-	mov $0x2f, %ecx
-	call PrintCharVGA
+	call PrintStrVGA
 
 	hlt
 
@@ -87,15 +95,22 @@ check_long_mode:
 	jmp error
 
 error:
-	movl $0x4f524f45, (0xb8000)
-	movl $0x4f3a4f52, (0xb8004)
-	movl $0x4f204f20, (0xb8008)
-	movb %al, (0xb800a)
+	mov $37, %edi
+	mov $12, %esi
+	mov $err, %edx
+	mov $0xc1, %ecx
+	call PrintStrVGA
 	hlt
 
 .section .rodata
-msg:
-	.asciz "This is a message."
+err:
+	.asciz "ERROR"
+linl_os_txt:
+	.asciz "LINL OS"
+test_txt:
+	.asciz "This is a test right here."
+ok_txt:
+	.asciz "Ok"
 
 .section .bss
 	.lcomm stack_bottom, 4096
