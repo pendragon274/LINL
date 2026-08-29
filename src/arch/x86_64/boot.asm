@@ -8,45 +8,56 @@
 .globl InitLongMode
 InitLongMode:
 	mov $stack_top, %esp			# Initialize stack to pre-long stack space.
-	
-	push %eax				# Save %eax as it is relevant for check_multiboot
 
-	call ClearVGA
+	call CheckMultiboot
+	call CheckCPUID
+	call CheckLongMode
 
-	pop %eax
-	call check_multiboot
-	call check_cpuid
-	call check_long_mode
+	mov $30, %eax
+	mov $8, %edi
+	mov $20, %esi
+	mov $linl_image_color_arr, %edx
+	mov $linl_image_color_arr.sizeof, %ecx
+	call WriteImageColorBufferVGA
 
-	mov $73, %edi
-	mov $0, %esi
-	mov $linl_os_txt, %edx
-	mov $0x0f, %ecx
-	call PrintStrVGA
-
-	mov $0x2f, %edx
-	call SetColor
-
-	mov $test_txt, %edi
-	call WriteStrVGA
-
-	mov $'a', %edx
-	call WriteCharVGA
-
-	mov $'b', %edx
-	call WriteCharVGA
+	mov $0, %eax
+	mov $0, %edi
+	mov $20, %esi
+	mov $linl_image_char_arr, %edx
+	mov $linl_image_char_arr.sizeof, %ecx
+	call WriteImageCharBufferVGA
 
 	call FlushBufferVGA
 
-	mov $0, %edi
-	mov $0, %esi
-	mov $ok_txt, %edx
-	mov $0x2f, %ecx
-	call PrintStrVGA
-
 	hlt
 
-check_cpuid:
+CheckMultiboot:
+	push %eax
+
+	mov $0x0f, %edx
+	call SetColor
+
+	mov $checking_multiboot_txt, %edi
+	call WriteStrVGA
+
+	call FlushBufferVGA
+
+	pop %eax
+	cmp $0x36d76289, %eax
+
+	jne CheckMultiboot_fail
+	call EmitPass
+	ret
+	CheckMultiboot_fail:
+	call FailOut
+
+CheckCPUID:
+	mov $0x0f, %edx
+	call SetColor
+
+	mov $checking_cpuid_txt, %edi
+	call WriteStrVGA
+
 	pushfl
 	pop %eax
 	mov %eax, %ecx
@@ -62,55 +73,105 @@ check_cpuid:
 	popfl
 
 	cmp %eax, %ecx
-	jne cpuid_success
-	movb $'1', %al
-	cpuid_success:
+	jne CheckCPUID_success
+	call FailOut
+	CheckCPUID_success:
+	call EmitPass
 	ret
 
-check_multiboot:
-	cmp $0x36d76289, %eax
+CheckLongMode:
+	mov $0x0f, %edx
+	call SetColor
 
-	jne multiboot_fail
-	ret
-	multiboot_fail:
-	mov $'0', %al
-	jmp error
+	mov $checking_long_mode_txt, %edi
+	call WriteStrVGA
 
-check_long_mode:
+	call FlushBufferVGA
+
 	movl $0x80000000, %eax
 	cpuid
 
 	cmpl $0x80000001, %eax
-	jb long_mode_fail
+	jb CheckLongMode_fail
 	
 	movl $0x80000001, %eax
 	cpuid
 
 	test $(1<<29), %edx
-	jz long_mode_fail
+	jz CheckLongMode_fail
+
+	call EmitPass
 	ret
 
-	long_mode_fail:
-	mov $'2', %al
-	jmp error
+	CheckLongMode_fail:
+	call FailOut
 
-error:
-	mov $37, %edi
-	mov $12, %esi
-	mov $err, %edx
-	mov $0xc1, %ecx
-	call PrintStrVGA
+EmitPass:
+	endbr32
+
+	mov $'[', %edx
+	call WriteCharVGA
+
+	mov $0x2f, %edx
+	call SetColor
+
+	mov $pass_txt, %edi
+	call WriteStrVGA
+
+	mov $0x0f, %edx
+	call SetColor
+
+	mov $']', %edx
+	call WriteCharVGA
+
+	#mov $'\n', %edx
+	#call WriteCharVGA
+
+	call FlushBufferVGA
+
+	ret
+
+FailOut:
+	endbr32
+
+	mov $'[', %edx
+	call WriteCharVGA
+
+	mov $0x40, %edx
+	call SetColor
+
+	mov $fail_txt, %edi
+	call WriteStrVGA
+
+	mov $0x0f, %edx
+	call SetColor
+
+	mov $']', %edx
+	call WriteCharVGA
+
+	call FlushBufferVGA
+
 	hlt
 
 .section .rodata
-err:
-	.asciz "ERROR"
-linl_os_txt:
-	.asciz "LINL OS"
-test_txt:
-	.asciz "This is a test right here."
-ok_txt:
-	.asciz "Ok"
+checking_multiboot_txt:
+	.asciz "Checking multiboot...                                                     "
+checking_cpuid_txt:
+	.asciz "Checking CPUID...                                                         "
+checking_long_mode_txt:
+	.asciz "Checking long mode...                                                     "
+pass_txt:
+	.asciz "PASS"
+fail_txt:
+	.asciz "FAIL"
+linl_image_char_arr:
+	.ascii "LINL OS"
+linl_image_char_arr_end:
+.set linl_image_char_arr.sizeof, linl_image_char_arr_end - linl_image_char_arr
+linl_image_color_arr:
+	.byte 0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f
+linl_image_color_arr_end:
+.set linl_image_color_arr.sizeof, linl_image_color_arr_end - linl_image_color_arr
 
 .section .bss
 	.lcomm stack_bottom, 4096
