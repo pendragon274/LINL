@@ -9,29 +9,40 @@
 InitLongMode:
 	mov $stack_top, %esp			# Initialize stack to pre-long stack space.
 
+	push %eax
+	call WriteImage
+	pop %eax
+
 	call CheckMultiboot
 	call CheckCPUID
 	call CheckLongMode
 
-	mov $30, %eax
-	mov $8, %edi
-	mov $20, %esi
-	mov $linl_image_color_arr, %edx
-	mov $linl_image_color_arr.sizeof, %ecx
-	call WriteImageColorBufferVGA
-
-	mov $0, %eax
-	mov $0, %edi
-	mov $20, %esi
-	mov $linl_image_char_arr, %edx
-	mov $linl_image_char_arr.sizeof, %ecx
-	call WriteImageCharBufferVGA
-
-	call FlushBufferVGA
-
 	hlt
 
+WriteImage:
+    endbr32
+
+    mov $15, %eax
+    mov $8, %edi
+    mov $50, %esi
+    mov $linl_image_color_arr, %edx
+    mov $linl_image_color_arr.sizeof, %ecx
+    call WriteImageColorBufferVGA
+
+    mov $15, %eax
+    mov $8, %edi
+    mov $50, %esi
+    mov $linl_image_char_arr, %edx
+    mov $linl_image_char_arr.sizeof, %ecx
+    call WriteImageCharBufferVGA
+
+    call FlushBufferVGA
+
+    ret
+
 CheckMultiboot:
+    endbr32
+
 	push %eax
 
 	mov $0x0f, %edx
@@ -45,13 +56,13 @@ CheckMultiboot:
 	pop %eax
 	cmp $0x36d76289, %eax
 
-	jne CheckMultiboot_fail
+	jne DumpAndFail
 	call EmitPass
 	ret
-	CheckMultiboot_fail:
-	call FailOut
 
 CheckCPUID:
+    endbr32
+
 	mov $0x0f, %edx
 	call SetColor
 
@@ -73,13 +84,14 @@ CheckCPUID:
 	popfl
 
 	cmp %eax, %ecx
-	jne CheckCPUID_success
-	call FailOut
-	CheckCPUID_success:
+	je DumpAndFail
+
 	call EmitPass
 	ret
 
 CheckLongMode:
+    endbr32
+
 	mov $0x0f, %edx
 	call SetColor
 
@@ -92,19 +104,16 @@ CheckLongMode:
 	cpuid
 
 	cmpl $0x80000001, %eax
-	jb CheckLongMode_fail
+	jb DumpAndFail
 	
 	movl $0x80000001, %eax
 	cpuid
 
 	test $(1<<29), %edx
-	jz CheckLongMode_fail
+	jz DumpAndFail
 
 	call EmitPass
 	ret
-
-	CheckLongMode_fail:
-	call FailOut
 
 EmitPass:
 	endbr32
@@ -123,9 +132,6 @@ EmitPass:
 
 	mov $']', %edx
 	call WriteCharVGA
-
-	#mov $'\n', %edx
-	#call WriteCharVGA
 
 	call FlushBufferVGA
 
@@ -149,9 +155,21 @@ FailOut:
 	mov $']', %edx
 	call WriteCharVGA
 
+	mov $'\n', %edx
+	call WriteCharVGA
+
 	call FlushBufferVGA
 
-	hlt
+	ret
+
+DumpAndFail:
+    endbr32
+
+    call PreserveCore
+    push %eax
+    call FailOut
+    pop %edi
+    jmp DumpCore
 
 .section .rodata
 checking_multiboot_txt:
@@ -165,11 +183,30 @@ pass_txt:
 fail_txt:
 	.asciz "FAIL"
 linl_image_char_arr:
-	.ascii "LINL OS"
+    .equ c, 0x1e
+    .equ z, 0x00
+    .byte z, z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z
+    .byte z, c, c, z, z, z, z, z,   c, c, c, c, c, c, z,   c, c, z, z, c, c, z,   c, c, z, z, z, z, z,   z, z, z, z, z, z, z,   z, c, c, c, c, z, z,   z, c, c, c, c, z, z
+    .byte z, c, c, z, z, z, z, z,   z, z, c, c, z, z, z,   c, c, c, z, c, c, z,   c, c, z, z, z, z, z,   z, z, z, z, z, z, z,   c, c, z, z, c, c, z,   c, c, z, z, z, c, z
+    .byte z, c, c, z, z, z, z, z,   z, z, c, c, z, z, z,   c, c, c, c, c, c, z,   c, c, z, z, z, z, z,   z, z, z, z, z, z, z,   c, c, z, z, c, c, z,   z, c, c, c, z, z, z
+    .byte z, c, c, z, z, z, z, z,   z, z, c, c, z, z, z,   c, c, c, c, c, c, z,   c, c, z, z, z, z, z,   z, z, z, z, z, z, z,   c, c, z, z, c, c, z,   z, z, c, c, c, z, z
+    .byte z, c, c, z, z, z, z, z,   z, z, c, c, z, z, z,   c, c, z, c, c, c, z,   c, c, z, z, z, z, z,   z, z, z, z, z, z, z,   c, c, z, z, c, c, z,   c, z, z, z, c, c, z
+    .byte z, c, c, c, c, c, c, z,   c, c, c, c, c, c, z,   c, c, z, z, c, c, z,   c, c, c, c, c, c, z,   z, z, z, z, z, z, z,   z, c, c, c, c, z, z,   z, c, c, c, c, z, z
+    .byte z, z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z
 linl_image_char_arr_end:
 .set linl_image_char_arr.sizeof, linl_image_char_arr_end - linl_image_char_arr
 linl_image_color_arr:
-	.byte 0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f
+    .equ g, 0x3b
+    .equ b, 0xfb
+    .equ r, 0x70
+    .byte r, r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r
+	.byte r, g, g, b, b, b, b, b,   g, g, g, g, g, g, b,   g, g, b, b, g, g, b,   g, g, b, b, b, b, b,   b, b, b, b, b, b, b,   b, g, g, g, g, b, b,   b, g, g, g, g, b, r
+	.byte r, g, g, b, b, b, b, b,   b, b, g, g, b, b, b,   g, g, g, b, g, g, b,   g, g, b, b, b, b, b,   b, b, b, b, b, b, b,   g, g, b, b, g, g, b,   g, g, b, b, b, g, r
+	.byte r, g, g, b, b, b, b, b,   b, b, g, g, b, b, b,   g, g, g, g, g, g, b,   g, g, b, b, b, b, b,   b, b, b, b, b, b, b,   g, g, b, b, g, g, b,   b, g, g, g, b, b, r
+	.byte r, g, g, b, b, b, b, b,   b, b, g, g, b, b, b,   g, g, g, g, g, g, b,   g, g, b, b, b, b, b,   b, b, b, b, b, b, b,   g, g, b, b, g, g, b,   b, b, g, g, g, b, r
+	.byte r, g, g, b, b, b, b, b,   b, b, g, g, b, b, b,   g, g, b, g, g, g, b,   g, g, b, b, b, b, b,   b, b, b, b, b, b, b,   g, g, b, b, g, g, b,   g, b, b, b, g, g, r
+	.byte r, g, g, g, g, g, g, b,   g, g, g, g, g, g, b,   g, g, b, b, g, g, b,   g, g, g, g, g, g, b,   b, b, b, b, b, b, b,   b, g, g, g, g, b, b,   b, g, g, g, g, b, r
+	.byte r, r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r
 linl_image_color_arr_end:
 .set linl_image_color_arr.sizeof, linl_image_color_arr_end - linl_image_color_arr
 

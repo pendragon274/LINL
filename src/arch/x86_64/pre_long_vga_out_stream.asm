@@ -6,6 +6,8 @@
 FlushBufferVGA:
 	endbr32
 
+    call ClearVGA
+
 	mov $VGA_Out_Buffer.image_buffer, %edi
 	mov $0xb8000, %esi
 	mov $40*25, %edx
@@ -13,10 +15,22 @@ FlushBufferVGA:
 
 	mov $VGA_Out_Buffer.buffer, %edi
 	mov $0xb8000, %esi
-	mov $40*25, %edx
-	call MemCpyNonZero
+	mov $80*25, %edx
+	call MemCpyWNonZeroNonSpaceVGA
 
 	ret
+
+# ClearVGA(void) -> void
+.globl ClearVGA
+ClearVGA:
+    endbr32
+
+    mov $0xb8000, %edi
+    mov $0, %esi
+    mov $40*25, %edx
+    call MemFill
+
+    ret
 
 # ClearBufferVGA(void) -> void
 .globl ClearBufferVGA
@@ -243,24 +257,6 @@ WriteImageCharBufferVGA:
 	push %ecx				# arr_len
 	push $0					# idx
 
-	mov $VGA_Out_Buffer.image_buffer, %edi
-	call WriteIntAsHexVGA
-
-	mov $' ', %edx
-	call WriteCharVGA
-
-	mov $'-', %edx
-	call WriteCharVGA
-
-	mov $' ', %edx
-	call WriteCharVGA
-
-	mov $VGA_Out_Buffer.current_color, %edi
-	call WriteIntAsHexVGA
-
-	mov $'\n', %edx
-	call WriteCharVGA
-
 	.equ x, 20
 	.equ y, 16
 	.equ width, 12
@@ -290,7 +286,7 @@ WriteImageCharBufferVGA:
 	add %edi, %edx				# edx = x in buffer
 	push %edx
 
-	mov y+4(%esp), %edi
+	mov y+8(%esp), %edi
 	add %edi, %eax				# eax = y in buffer
 	push %eax
 	
@@ -310,16 +306,9 @@ WriteImageCharBufferVGA:
 
 	add %eax, %edi
 
-	push %edi
-	call WriteIntAsHexVGA
-
-	mov $' ', %edx
-	call WriteCharVGA
-	pop %edi
-
 	pop %eax
 
-	movb %al, 1(%edi)
+	movb %al, (%edi)
 
 	pop %eax
 	inc %eax
@@ -334,19 +323,122 @@ WriteImageCharBufferVGA:
 .globl WriteImageColorBufferVGA
 WriteImageColorBufferVGA:
 	endbr32
-	push %ebx				# To Preserve ebx
-	push %eax				# x
-	push %edi				# y
-	push %esi				# width
-	push %edx				# color_arr
-	push %ecx				# arr_len
+    push %eax				# x
+    push %edi				# y
+    push %esi				# width
+    push %edx				# char_arr
+    push %ecx				# arr_len
+    push $0					# idx
 
-	.equ x, 16
-	mov $x, %eax
+    .equ x, 20
+    .equ y, 16
+    .equ width, 12
+    .equ char_arr, 8
+    .equ arr_len, 4
+    .equ idx, 0
 
-	add $20, %esp
-	pop %ebx
-	ret
+    WriteImageColorBufferVGA_loop:
+    mov idx(%esp), %eax
+    mov arr_len(%esp), %edx
+    cmp %eax, %edx
+    jle WriteImageColorBufferVGA_end_loop
+
+    mov char_arr(%esp), %edx
+    mov idx(%esp), %eax
+    add %edx, %eax
+    xor %ecx, %ecx
+    movb (%eax), %cl
+    push %ecx
+
+    mov idx+4(%esp), %eax
+    xor %edx, %edx
+    mov width+4(%esp), %ecx
+    div %ecx
+
+    mov x+4(%esp), %edi
+    add %edi, %edx				# edx = x in buffer
+    push %edx
+
+    mov y+8(%esp), %edi
+    add %edi, %eax				# eax = y in buffer
+    push %eax
+
+    xor %edx, %edx
+    mov $160, %ecx
+    mul %ecx
+
+    mov $VGA_Out_Buffer.image_buffer, %edi
+    add %eax, %edi
+
+    pop %eax
+    pop %eax				# eax = x in buffer
+
+    xor %edx, %edx
+    mov $2, %ecx
+    mul %ecx
+
+    add %eax, %edi
+
+    pop %eax
+
+    movb %al, 1(%edi)
+
+    pop %eax
+    inc %eax
+    push %eax
+    jmp WriteImageColorBufferVGA_loop
+    WriteImageColorBufferVGA_end_loop:
+
+    add $24, %esp
+    ret
+
+# MemCpyWNonZeroNonSpaceVGA(arr1: int16*, arr2: int16*, w_len: int32) -> void
+.globl MemCpyWNonZeroNonSpaceVGA
+MemCpyWNonZeroNonSpaceVGA:
+    endbr32
+    xor %eax, %eax
+    push %edi                       # arr1
+    push %esi                       # arr2
+    push %edx                       # w_len
+    push %eax                       # idx
+
+    MemCpyWNonZeroNonSpaceVGA_loop:
+    mov 4(%esp), %edx
+    mov (%esp), %eax
+    cmp %eax, %edx
+    jle MemCpyWNonZeroNonSpaceVGA_loop_end
+
+    mov $2, %edx
+    mul %edx
+
+    mov 12(%esp), %edi
+    add %eax, %edi
+
+    mov 8(%esp), %esi
+    add %eax, %esi
+
+    movw (%edi), %ax
+
+    cmp $0, %ax
+    je MemCpyWNonZeroNonSpaceVGA_skip
+
+    cmp $0x0f20, %ax
+    je MemCpyWNonZeroNonSpaceVGA_skip
+
+    movw %ax, (%esi)
+    MemCpyWNonZeroNonSpaceVGA_skip:
+
+    pop %eax
+    inc %eax
+    push %eax
+    jmp MemCpyWNonZeroNonSpaceVGA_loop
+    MemCpyWNonZeroNonSpaceVGA_loop_end:
+
+    pop %eax
+    pop %edx
+    pop %esi
+    pop %edi
+    ret
 
 # SetColor(color: u8) -> void
 .globl SetColor
