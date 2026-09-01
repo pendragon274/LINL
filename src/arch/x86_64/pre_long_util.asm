@@ -34,6 +34,74 @@ StrLen:
 	
 	ret
 
+# VirtualToPhysical(addr: i32) -> i32
+.globl VirtualToPhysical
+VirtualToPhysical:
+    endbr32
+    push %edi
+    push %eax
+
+    mov %cr3, %eax                      # eax = p4_table*
+
+    and $0xfffff000, %eax               # This table must be aligned to 4096 and the last 12 bits contain other information, so this is the real p4_table*.
+
+    cmp $0, %eax
+    jz VirtualToPhysical_end            # If p4_table == null, then end and return 0.
+
+    mov %eax, (%esp)                    # 0(%esp) = p4_table
+
+    # Something should go here in long mode for multiple p3_tables. In 32 bit mode, there can only be this one p3 table.
+
+    mov (%eax), %eax                    # %eax = p4_table entry 0, which is the (or a) p3_table.
+
+    and $0xfffff000, %eax               # Table must be aligned to 4096, with these bits not relevant to the address.
+
+    mov %eax, (%esp)                    # 0(esp) = p3_table*
+
+    cmp $0, %eax
+    jz VirtualToPhysical_end
+
+    mov 4(%esp), %edi                   # edi = addr
+
+    and $0xc0000000, %edi               # These two bits should provide the index of the p3 table.
+    shr $30, %edi                       # edi = p3 table index.
+
+    mov $8, %eax
+    mul %edi
+
+    mov (%esp), %edi
+    add %edi, %eax                      # eax = address of the nth index of the p3 table.
+
+    mov (%eax), %eax                    # eax = p2 table* for this addr (with the last 12 bits other information).
+
+    and $0xfffff000, %eax               # Hack off the last 12 bits of eax to provide the p2 table address.
+
+    mov %eax, (%esp)                    # 0(esp) = p2_table*
+
+    cmp $0, %eax
+    jz VirtualToPhysical_end            # If p2_table* == null
+
+    mov 4(%esp), %edi                   # edi = addr
+
+    and $0x3fe00000, %edi               # Pull the p2 index bits out of the addr.
+    shr $21, %edi
+
+    mov $8, %eax
+    mul %edi
+
+    mov (%esp), %edi
+    add %edi, %eax
+
+    pop %edi
+    pop %edi
+    ret
+
+    VirtualToPhysical_end:
+    pop %eax
+    pop %edi
+    mov $0, %eax
+    ret
+
 # MemCpy(arr1: int32*, arr2: int32*, len: int) -> void
 .globl MemCpy
 MemCpy:
