@@ -1,0 +1,38 @@
+use core::ops::{Index, IndexMut};
+
+#[repr(transparent)]
+pub struct RawMemSegment<'a>{
+    mem: &'a mut [u8]
+}
+
+impl<'a> RawMemSegment<'a>{
+    pub fn write_at(&mut self, index: usize, to_write: &[u8]){
+        let mut i = 0;
+        for byte in to_write{
+            self.mem[i + index] = byte.clone();
+            i += 1;
+        }
+    }
+
+    pub unsafe fn new<'b>(start: *mut u8, len: usize) -> RawMemSegment<'b>{
+        unsafe {
+            RawMemSegment{
+                mem: core::slice::from_raw_parts_mut(start, len)
+            }
+        }
+    }
+}
+
+impl Index<usize> for RawMemSegment<'_>{
+    type Output = u8;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.mem[index]
+    }
+}
+
+impl IndexMut<usize> for RawMemSegment<'_>{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.mem[index]
+    }
+}

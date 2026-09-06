@@ -449,10 +449,16 @@ SetColor:
 
 	ret
 
-.section .data
+.section .pre_long_data, "aw"
+.globl VGA_Out_Buffer
+.globl VGA_Out_Buffer.sizeof
 VGA_Out_Buffer:
 	VGA_Out_Buffer.buffer: .space 2 * 80 * 24
 	VGA_Out_Buffer.bottom_line: .space 2 * 80
 	VGA_Out_Buffer.image_buffer: .space 2 * 80 * 25
 	VGA_Out_Buffer.current_color: .space 1
 	VGA_Out_Buffer.cursor_x: .space 1
+VGA_Out_Buffer_end:
+.set VGA_Out_Buffer.sizeof, (VGA_Out_Buffer_end - VGA_Out_Buffer)
+
+.section .note.GNU-stack,"",@progbits

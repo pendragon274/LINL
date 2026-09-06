@@ -224,3 +224,5 @@ MemFill:
 	pop %esi
 	pop %edi
 	ret
+
+.section .note.GNU-stack,"",@progbits
