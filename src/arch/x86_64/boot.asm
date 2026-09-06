@@ -149,29 +149,30 @@ InitPageTables:
     or $0b11, %eax
     mov %eax, (p3_table)
 
+    mov $128, %esi
+    mov %esi, %ecx
+    kernel_p2_loop:
+        mov %esi, %eax
+        sub %ecx, %eax
+        push %eax
 
+        xor %edx, %edx
+        mov $0x00200000, %edi
+        mul %edi
 
+        add $0x00400000, %eax
+        or $0b10000011, %eax
+        mov %eax, %edi
 
-    mov $0x00400000, %eax
-    or $0b10000011, %eax
-    mov %eax, (kernel_p2)
+        xor %edx, %edx
+        mov (%esp), %eax
+        mov $8, %edx
+        mul %edx
 
-    mov $0x00600000, %eax
-    or $0b10000011, %eax
-    mov %eax, (kernel_p2+8)
+        mov %edi, kernel_p2(%eax)
 
-    mov $0x00800000, %eax
-    or $0b10000011, %eax
-    mov %eax, (kernel_p2+16)
-
-    mov $0x00A00000, %eax
-    or $0b10000011, %eax
-    mov %eax, (kernel_p2+24)
-
-    mov $0x00C00000, %eax
-    or $0b10000011, %eax
-    mov %eax, (kernel_p2+32)
-
+        pop %eax
+        loop kernel_p2_loop
 
     mov $kernel_p2, %eax
     or $0b11, %eax
@@ -314,17 +315,9 @@ DumpAndFail:
 .section .kernel.text
 EnterKernel:
     endbr64
-    /*movq $0xdeadbeefdeadbeef, %rax
-    movq %rax, (asm_kern_info)
-    movq $VGA_Out_Buffer, (asm_kern_info+8)
-    mov $VGA_Out_Buffer, %rax
-    mov $VGA_Out_Buffer_end, %rdx
-    sub %rdx, %rax
-    movl %eax, (asm_kern_info+16)*/
-    /*mov $asm_kern_info, %rdi
-    mov $asm_kern_info, %rax
-    movq $0xdeadbeefdeadbeef, %rcx
-    movq %rcx, (%rax)*/
+
+    mov $KERNEL_STACK_TOP, %esp
+
     movq $asm_kern_info, %rdi
 
     movl $kernel_main, %eax
