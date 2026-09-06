@@ -164,7 +164,7 @@ DumpCore:
 .struct 40
     CoreDump_sizeof:
 
-.section .rodata
+.section .pre_long_rodata
 spacer_txt:
     .asciz " | "
 eax_txt:
@@ -187,3 +187,5 @@ eip_txt:
     .asciz "%eip = "
 efl_txt:
     .asciz "%efl = "
+
+.section .note.GNU-stack,"",@progbits

@@ -3,11 +3,14 @@
 # Preserved registers: rbx, rsp, rbp, r12, r13, r14, r15
 # Non-preserved registers: rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11
 
+.extern kernel_main
+
 .code32
 .section .pre_long_mode_kernel
 .globl InitLongMode
 InitLongMode:
-	mov $stack_top, %esp			# Initialize stack to pre-long stack space.
+    mov $pre_long_stack_bottom, %ebp
+	mov $pre_long_stack_bottom, %esp			# Initialize stack to pre-long stack space.
 
 	push %eax
 	call WriteImage
@@ -20,6 +23,7 @@ InitLongMode:
 	call TestIdentityMapping
 	call EnablePaging
 	call LoadGDT
+	jmp PreEnterKernel
 
 	hlt
 
@@ -134,34 +138,44 @@ InitPageTables:
     or $0b11, %eax
     mov %eax, (p4_table)
 
+    mov $0b10000011, %eax
+    mov %eax, (p2_table)
+
+    mov $0x200000, %eax
+    or $0b10000011, %eax
+    mov %eax, (p2_table+8)
+
     mov $p2_table, %eax
     or $0b11, %eax
     mov %eax, (p3_table)
 
-    xor %ecx, %ecx
-    InitPageTables_loop:
-    cmp $512, %ecx
-    jge InitPageTables_loop_end
 
-    mov $0x200000, %eax
-    xor %edx, %edx
-    mul %ecx
 
+
+    mov $0x00400000, %eax
     or $0b10000011, %eax
+    mov %eax, (kernel_p2)
 
-    push %eax
+    mov $0x00600000, %eax
+    or $0b10000011, %eax
+    mov %eax, (kernel_p2+8)
 
-    mov $8, %eax
-    mul %ecx
+    mov $0x00800000, %eax
+    or $0b10000011, %eax
+    mov %eax, (kernel_p2+16)
 
-    mov %eax, %edi
+    mov $0x00A00000, %eax
+    or $0b10000011, %eax
+    mov %eax, (kernel_p2+24)
 
-    pop %eax
-    mov %eax, p2_table(%edi)
+    mov $0x00C00000, %eax
+    or $0b10000011, %eax
+    mov %eax, (kernel_p2+32)
 
-    inc %ecx
-    jmp InitPageTables_loop
-    InitPageTables_loop_end:
+
+    mov $kernel_p2, %eax
+    or $0b11, %eax
+    mov %eax, (p3_table+24)
 
     mov $p4_table, %eax
     mov %eax, %cr3
@@ -177,26 +191,6 @@ TestIdentityMapping:
 
     mov $test_identity_map_txt, %edi
     call WriteStrVGA
-
-    /*mov $'\n', %edx
-    call WriteCharVGA
-
-    mov $TestIdentityMapping, %ebx
-    mov %ebx, %edi
-    call WriteIntAsHexVGA
-
-    mov $'|', %edi
-    call WriteCharVGA
-
-    mov %ebx, %edi
-    call VirtualToPhysical
-
-    mov %eax, %edi
-    call WriteIntAsHexVGA
-
-    mov $'\n', %edx
-    call WriteCharVGA*/
-    # Should put a real test in here. Skipping for now.
 
     call FlushBufferVGA
 
@@ -233,9 +227,32 @@ EnablePaging:
 LoadGDT:
     endbr32
 
+    mov $0x0f, %edx
+    call SetColor
 
+    mov $load_gdt_txt, %edi
+    call WriteStrVGA
 
+    call FlushBufferVGA
+
+    lgdt gdt_64.pointer
+
+    call EmitPass
     ret
+
+PreEnterKernel:
+    endbr32
+
+    mov $0x0f, %edx
+    call SetColor
+
+    mov $enter_kernel_txt, %edi
+    call WriteStrVGA
+
+    call FlushBufferVGA
+
+    ljmp $gdt_64_text, $EnterKernel
+    hlt
 
 EmitPass:
 	endbr32
@@ -293,25 +310,61 @@ DumpAndFail:
     pop %edi
     jmp DumpCore
 
-.section .rodata
+.code64
+.section .kernel.text
+EnterKernel:
+    endbr64
+    /*movq $0xdeadbeefdeadbeef, %rax
+    movq %rax, (asm_kern_info)
+    movq $VGA_Out_Buffer, (asm_kern_info+8)
+    mov $VGA_Out_Buffer, %rax
+    mov $VGA_Out_Buffer_end, %rdx
+    sub %rdx, %rax
+    movl %eax, (asm_kern_info+16)*/
+    /*mov $asm_kern_info, %rdi
+    mov $asm_kern_info, %rax
+    movq $0xdeadbeefdeadbeef, %rcx
+    movq %rcx, (%rax)*/
+    movq $asm_kern_info, %rdi
+
+    movl $kernel_main, %eax
+    mov $0, %rcx
+    add %rcx, %rax
+    jmp *%rax
+    hlt
+
+.code32
+.section .pre_long_rodata, "aw"
 checking_multiboot_txt:
 	.asciz "Checking multiboot...                                                     "
+
 checking_cpuid_txt:
 	.asciz "Checking CPUID...                                                         "
+
 checking_long_mode_txt:
 	.asciz "Checking long mode...                                                     "
+
 init_paging_txt:
     .asciz "Initializing paging...                                                    "
+
 test_identity_map_txt:
     .asciz "Testing identity map...                                                   "
+
 enable_paging_txt:
     .asciz "Enabling paging...                                                        "
+
 load_gdt_txt:
     .asciz "Loading the GDT...                                                        "
+
+enter_kernel_txt:
+    .asciz "Entering kernel...                                                        "
+
 pass_txt:
 	.asciz "PASS"
+
 fail_txt:
 	.asciz "FAIL"
+
 linl_image_char_arr: .set linl_image_char_arr.sizeof, linl_image_char_arr_end - linl_image_char_arr
     .equ c, 0x1e
     .equ z, 0x00
@@ -324,7 +377,7 @@ linl_image_char_arr: .set linl_image_char_arr.sizeof, linl_image_char_arr_end - 
     .byte z, c, c, c, c, c, c, z,   c, c, c, c, c, c, z,   c, c, z, z, c, c, z,   c, c, c, c, c, c, z,   z, z, z, z, z, z, z,   z, c, c, c, c, z, z,   z, c, c, c, c, z, z
     .byte z, z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z,   z, z, z, z, z, z, z
     linl_image_char_arr_end:
-    .set linl_image_char_arr.sizeof, linl_image_char_arr_end - linl_image_char_arr
+
 linl_image_color_arr: .set linl_image_color_arr.sizeof, linl_image_color_arr_end - linl_image_color_arr
     .equ g, 0x3b
     .equ b, 0xfb
@@ -339,9 +392,32 @@ linl_image_color_arr: .set linl_image_color_arr.sizeof, linl_image_color_arr_end
 	.byte r, r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r,   r, r, r, r, r, r, r
     linl_image_color_arr_end:
 
-.section .bss
-    .lcomm p4_table, 4096
-    .lcomm p3_table, 4096
-    .lcomm p2_table, 4096
-	.lcomm stack_bottom, 4096
-	stack_top:
+.section .pre_long_data, "aw"
+gdt_64:
+    .quad 0
+gdt_64.text: .set gdt_64_text, gdt_64.text - gdt_64
+    .quad (1<<41) | (1<<43) | (1<<44) | (1<<47) | (1<<53)
+    #.quad 0x00209a0000000000
+gdt_64.pointer:
+    .word gdt_64.pointer - gdt_64 - 1
+    .quad gdt_64
+asm_kern_info:
+    .quad 0xdeadbeefdeadbeef
+    .quad VGA_Out_Buffer
+    .long VGA_Out_Buffer.sizeof
+
+.section .pre_long_bss, "aw", @nobits
+p4_table: .space            4096
+p3_table: .space            4096
+p2_table: .space            4096
+kernel_p2: .space           4096
+pre_long_stack_top: .space  4096
+    pre_long_stack_bottom:
+
+/*
+.section .kernel.stack, "aw", @nobits
+kernel_stack_top: .space 4096
+    kernel_stack_bottom:
+*/
+
+.section .note.GNU-stack,"",@progbits

@@ -11,8 +11,10 @@ header_start:
 	.long 8
 header_end:
 
-.section .text
+.section .pre_long_mode_kernel, "ax", @progbits
 .align 16
 .globl _start
 _start:
 	jmp InitLongMode
+
+.section .note.GNU-stack,"",@progbits
