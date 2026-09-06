@@ -46,7 +46,7 @@ impl<'a> VGAOutStream<'a>{
             if significant != 0{
                 started = true;
                 let new_char: u8 = match significant {
-                    0..9 => ('0' as u8) + significant,
+                    0..=9 => ('0' as u8) + significant,
                     _ => ('A' as u8) + (significant - 10)
                 };
                 self.write_char(new_char as char);

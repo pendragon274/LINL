@@ -4,8 +4,11 @@ use crate::vga_display::vga_out_stream::VGAOutStream;
 use crate::asm_ops::kernel_info::KernelInfo;
 
 ///
-/// Should move the stack to the new spot.
-/// Should pass kernel info to the kernel_main function.
+/// DONE: Should move the stack to the new spot.
+///
+/// TODO: Should pass kernel info to the kernel_main function.
+/// TODO: Should implement a heap.
+/// TODO: Implement a paging manager.
 ///
 
 #[unsafe(no_mangle)]
