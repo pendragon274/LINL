@@ -14,6 +14,12 @@ impl<'a> RawMemSegment<'a>{
         }
     }
 
+    pub fn clear(&mut self){
+        for i in 0..self.mem.len(){
+            self.mem[i] = 0;
+        }
+    }
+
     pub unsafe fn new<'b>(start: *mut u8, len: usize) -> RawMemSegment<'b>{
         unsafe {
             RawMemSegment{

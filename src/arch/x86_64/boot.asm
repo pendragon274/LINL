@@ -12,9 +12,11 @@ InitLongMode:
     mov $pre_long_stack_bottom, %ebp
 	mov $pre_long_stack_bottom, %esp			# Initialize stack to pre-long stack space.
 
+    push %ebx
 	push %eax
 	call WriteImage
 	pop %eax
+	pop %ebx
 
 	call CheckMultiboot
 	call CheckCPUID
@@ -50,7 +52,7 @@ WriteImage:
 
 CheckMultiboot:
     endbr32
-
+    push %ebx
 	push %eax
 
 	mov $0x0f, %edx
@@ -61,9 +63,15 @@ CheckMultiboot:
 
 	call FlushBufferVGA
 
-	pop %eax
+    mov (%esp), %eax
 	cmp $0x36d76289, %eax
 
+    mov $asm_kern_info.multiboot_information_ptr, %eax
+    mov 4(%esp), %edx
+	movl %edx, (%eax)
+
+    pop %eax
+    pop %ebx
 	jne DumpAndFail
 	call EmitPass
 	ret
@@ -317,6 +325,7 @@ EnterKernel:
     endbr64
 
     mov $KERNEL_STACK_TOP, %esp
+    mov $KERNEL_STACK_TOP, %ebp
 
     movq $asm_kern_info, %rdi
 
@@ -395,9 +404,8 @@ gdt_64.pointer:
     .word gdt_64.pointer - gdt_64 - 1
     .quad gdt_64
 asm_kern_info:
-    .quad 0xdeadbeefdeadbeef
-    .quad VGA_Out_Buffer
-    .long VGA_Out_Buffer.sizeof
+    asm_kern_info.vga_buffer:                   .quad VGA_Out_Buffer
+    asm_kern_info.multiboot_information_ptr:    .quad 0
 
 .section .pre_long_bss, "aw", @nobits
 p4_table: .space            4096

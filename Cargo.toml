@@ -6,6 +6,7 @@ authors = ["Cary Phillips"]
 
 [lib]
 crate-type = ["staticlib"]
+harness = false
 
 [profile.dev]
 panic = "abort"
