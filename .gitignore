@@ -5,3 +5,4 @@
 qemu-test.log
 
 target/
+test/

@@ -6,3 +6,4 @@ mod panic;
 mod vga_display;
 mod memory;
 mod asm_ops;
+mod collections;

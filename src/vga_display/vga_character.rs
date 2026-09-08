@@ -20,7 +20,7 @@ pub enum VGAColorBase{
     White = 15
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 #[repr(transparent)]
 pub struct VGAColorCode(pub u8);
 
@@ -42,6 +42,12 @@ pub struct VGACharacter(pub u16);
 impl VGACharacter{
     pub fn bytes(&self) -> [u8; 2]{
         self.0.to_ne_bytes()
+    }
+
+    pub fn char(&self) -> char{
+        let mut val = self.0;
+        val &= 0xFF;
+        val as u8 as char
     }
 
     pub fn val(&self) -> u16{
