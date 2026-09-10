@@ -1,3 +1,4 @@
+#![feature(ptr_metadata)]
 #![no_std]
 #![no_main]
 

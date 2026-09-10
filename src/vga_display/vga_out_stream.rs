@@ -18,7 +18,7 @@ impl<'a> VGAOutStream<'a>{
         self.vga_mem.write_at(0, &img_slice_u8);
 
         for (idx, c) in self.out_buffer.buffer.iter().enumerate() {
-            if c.val() != 0 && c.char() != '\n'{
+            if c.val() != 0 && c.char() != '\n' && c.char() != ' '{
                 self.vga_mem.write_at(idx * 2, &c.bytes());
             }
         }
@@ -141,6 +141,13 @@ impl<'a> VGAOutStream<'a>{
         VGAOutStream {
             vga_mem: mem_map.borrow_segment(0xb8000, 160 * 25),
             out_buffer: buf.clone()
+        }
+    }
+
+    pub fn from_map(mem_map: &mut MemoryMap) -> VGAOutStream<'_>{
+        VGAOutStream{
+            vga_mem: mem_map.borrow_segment(0xb8000, 160 * 25),
+            out_buffer: VGAOutBuffer::default()
         }
     }
 }

@@ -24,7 +24,8 @@ if [ $exit_code -eq 0 ]; then
 		#rm kernel_main.o
 		grub-mkrescue -o linl.iso isofiles &>/dev/null
 		#grub-mkrescue /usr/lib/grub/i386-pc -o linl.iso isofiles
-		qemu-system-x86_64 -D ./qemu-test.log -d cpu,exec,int -no-reboot -drive file=linl.iso,format=raw,media=cdrom -no-reboot -no-shutdown -m 6G -cpu host -monitor stdio -enable-kvm
+		qemu-system-x86_64 -D ./qemu-test.log -d cpu,exec,int -drive file=test/test_drive.img,format=raw -drive file=linl.iso,format=raw,media=cdrom -no-reboot -no-shutdown -m 6G -cpu host -monitor stdio -enable-kvm
+		#qemu-system-x86_64 -D ./qemu-test.log -d cpu,exec,int -drive file=linl.iso,format=raw,media=cdrom -no-reboot -no-shutdown -m 6G -cpu host -monitor stdio -enable-kvm
 		#qemu-system-x86_64 -D ./qemu-test.log -d cpu,exec,int -no-reboot -drive file=linl.iso,format=raw,media=cdrom -no-reboot -no-shutdown -m 4G -monitor stdio
 		printf '\n'
 	fi

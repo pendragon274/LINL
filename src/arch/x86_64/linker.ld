@@ -19,6 +19,7 @@ PHDRS
     pre_long_data PT_LOAD FLAGS(6);
     pre_long_bss PT_LOAD FLAGS(6);
     kernel_text PT_LOAD FLAGS(5);
+    kernel_depend_text PT_LOAD FLAGS(5);
     kernel_data PT_LOAD FLAGS(6);
     kernel_rodata PT_LOAD FLAGS(4);
     kernel_rust_internals PT_LOAD FLAGS(4);
@@ -61,10 +62,17 @@ SECTIONS{
 	.kernel_text : ALIGN(4K)
     {
         *(.kernel.text)
+        /*(.text)
+        *(.text.*)
+        *(.ltext*)*/
+    } > kernel_virtual AT> kernel_physical :kernel_text
+
+    .kernel_depend_text : ALIGN(4K)
+    {
         *(.text)
         *(.text.*)
         *(.ltext*)
-    } > kernel_virtual AT> kernel_physical :kernel_text
+    } > kernel_virtual AT> kernel_physical :kernel_depend_text
 
     .kernel_data : ALIGN(4K)
     {
@@ -80,17 +88,34 @@ SECTIONS{
         *(.lrodata.*)
     } > kernel_virtual AT> kernel_physical :kernel_rodata
 
-    .kernel_remainder : ALIGN(4k)
+    .kernel_rust_internels : ALIGN(4K)
     {
         *(.got)
         *(.got.plt)
         *(.eh_frame)
+    } > kernel_virtual AT> kernel_physical :kernel_rust_internals
+
+    .kernel_throwaway : ALIGN(4K)
+    {
         *(.comment)
+
+        /*LONG(0);
+        FILL(0);
+        . = ALIGN(4K);*/
+    } > kernel_virtual AT> kernel_physical :kernel_throwaway
+
+    .kernel_remainder : ALIGN(4k)
+    {
+        /*LONG(0);
+        FILL(0);
+        . = ALIGN(4K);*/
     } > kernel_virtual AT> kernel_physical :kernel_remainder
 
-    .kernel_stack_lid BLOCK(4K) : ALIGN(4K)
+    .kernel_stack_lid : ALIGN(4K)
     {
-        LONG(0)
+        LONG(0);
+        FILL(0);
+        . = ALIGN(4K);
     } > kernel_virtual AT> kernel_physical :kernel_stack_lid
 
     .kernel_stack : ALIGN(4K)
