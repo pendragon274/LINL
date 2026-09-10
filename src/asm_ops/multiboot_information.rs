@@ -1,168 +1,169 @@
 use core::fmt::{Debug, Formatter};
+use core::ptr;
+use crate::collections::str_debug_format::StrDebugFormat;
 
-#[allow(dead_code)]
-pub struct MultibootInformationStorage{
-    information: MultibootInformation
-}
-
-#[derive(Copy, Clone)]
 #[repr(C)]
-pub struct MultibootInformation{
-    flags: u32,                 //0
-
-    mem_lower: u32,             //4
-    mem_upper: u32,             //8
-
-    boot_device: u32,           //12
-
-    cmdline: u32,               //16
-
-    mods_count: u32,            //20
-    mods_addr: u32,             //24
-
-    syms: Syms,                 //28 - 40
-
-    mmap_length: u32,           //44
-    mmap_addr: u32,             //48
-
-    drives_length: u32,         //52
-    drives_addr: u32,           //56
-
-    config_table: u32,          //60
-
-    boot_loader_name: u32,      //64
-
-    apm_table: u32,             //68
-
-    vbe_control_info: u32,      //72
-    vbe_mode_info: u32,         //76
-    vbe_mode: u16,              //80
-    vbe_interface_seg: u16,     //82
-    vbe_interface_off: u16,     //84
-    vbe_interface_len: u16,     //86
-
-    framebuffer_addr: u64,      //88
-    framebuffer_pitch: u32,     //96
-    framebuffer_width: u32,     //100
-    framebuffer_height: u32,    //104
-    framebuffer_bpp: u8,        //108
-    framebuffer_type: u8,       //109
-    color_info1: u16,           //110
-    color_info2: u16,           //112
-    color_info3: u16,           //114
+pub struct MultibootInformation {
+    total_size: u32,
+    reserved: u32,
+    data: [u8]
 }
 
 impl MultibootInformation {
-    #[allow(dead_code)]
-    pub fn deep_clone(&self) -> MultibootInformationStorage {
-        todo!()
+    pub fn get_command_line(&self) -> Option<StrDebugFormat<'_>> {
+        for tag in self.into_iter(){
+            match tag.tag_type{
+                TagType::CommandLine => return Some(StrDebugFormat::from_cstr(tag.current_data)),
+                _ => continue
+            }
+        }
+
+        None
+    }
+}
+
+impl<'a> From<*const MultibootInformation> for &'a MultibootInformation {
+    fn from(value: *const MultibootInformation) -> &'a MultibootInformation {
+        unsafe {
+            let size = (*value).total_size;
+            let mbi: *const MultibootInformation = ptr::from_raw_parts(value as *const (), size as usize);
+            &*mbi
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a MultibootInformation {
+    type Item = Tag<'a>;
+    type IntoIter = MultibootInformationIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        MultibootInformationIterator::from(self)
     }
 }
 
 impl Debug for MultibootInformation {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "MBI:{{")?;
+        write!(f, "MBI{{")?;
 
-        let (mem_valid, boot_device_valid, cmdline_valid, mods_valid,
-            sym_opt1, sym_opt2, mmap_valid, drives_valid,
-            config_table_valid, boot_loader_name_valid, apm_table_valid, vbe_table_valid,
-            framebuffer_valid) =
-            (((1 << 0) & self.flags) != 0, ((1 << 1) & self.flags) != 0,
-             ((1 << 2) & self.flags) != 0, ((1 << 3) & self.flags) != 0,
-             ((1 << 4) & self.flags) != 0, ((1 << 5) & self.flags) != 0,
-             ((1 << 6) & self.flags) != 0, ((1 << 7) & self.flags) != 0,
-             ((1 << 8) & self.flags) != 0, ((1 << 9) & self.flags) != 0,
-             ((1 << 10) & self.flags) != 0, ((1 << 11) & self.flags) != 0,
-             ((1 << 12) & self.flags) != 0);
-
-        if mem_valid {
-            write!(f,"Mem{{Lower: {}, Upper{}}}, ", self.mem_lower, self.mem_upper)?;
-        }
-
-        if boot_device_valid {
-            write!(f,"BootDevice{{{}}}, ", self.boot_device)?;
-        }
-
-        if cmdline_valid {
-            write!(f,"Cmdline{{{:x}}}, ", self.cmdline)?;
-        }
-
-        if mods_valid {
-            write!(f,"Mods{{Count: {}, Addr: {:x}}}, ", self.mods_count, self.mods_addr)?;
-        }
-
-        if sym_opt1{
-            write!(f,"SymsOpt1{{")?;
-            self.syms.fmt_opt1(f)?;
-            write!(f,"}}, ")?;
-        }
-
-        if sym_opt2{
-            write!(f,"SymsOpt2{{")?;
-            self.syms.fmt_opt2(f)?;
-            write!(f,"}}, ")?;
-        }
-
-        if mmap_valid {
-            write!(f,"MMap{{Length: {}, Addr: 0x{:x}}}, ", self.mmap_length, self.mmap_addr)?;
-        }
-
-        if drives_valid {
-            write!(f, "Drives{{Length: {}, Addr: {:x}}}, ", self.drives_length, self.drives_addr)?;
-        }
-
-        if config_table_valid {
-            write!(f, "ConfigTable{{}}, ")?;
+        for tag in self.into_iter() {
+            write!(f, "{:?}, ", tag)?;
         }
 
         write!(f, "}}")?;
+
         Ok(())
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union Syms{
-    pub syms_opt1: SymOpt1,
-    pub syms_opt2: SymOpt2
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum TagType{
+    End = 0,
+    CommandLine = 1,
+    BootLoaderName = 2,
+    MemoryMap = 6,
+    APMTable = 10,
+    NetworkInfo = 16,
+    IMGBaseAddr = 21,
+    Unknown = 99
 }
 
-impl Syms{
-    fn fmt_opt1(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        unsafe { write!(f, "{:?}", self.syms_opt1) }
-    }
-
-    fn fmt_opt2(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        unsafe { write!(f, "{:?}", self.syms_opt2) }
-    }
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct SymOpt1{
-    tab_size: u32,
-    str_size: u32,
-    addr: u32,
-    _discard: u32
-}
-
-impl Debug for SymOpt1 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> core::fmt::Result {
-        Ok(())
+impl From<u32> for TagType{
+    fn from(value: u32) -> Self {
+        match value {
+            0 => TagType::End,
+            1 => TagType::CommandLine,
+            2 => TagType::BootLoaderName,
+            6 => TagType::MemoryMap,
+            10 => TagType::APMTable,
+            16 => TagType::NetworkInfo,
+            21 => TagType::IMGBaseAddr,
+            _ => TagType::Unknown
+        }
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct SymOpt2{
-    num: u32,
-    size: u32,
-    addr: u32,
-    shndx: u32
+pub struct Tag<'a>{
+    tag_type: TagType,
+    current_data: &'a [u8],
+    remaining_data: &'a [u8]
 }
 
-impl Debug for SymOpt2 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> core::fmt::Result {
-        Ok(())
+impl<'a> Tag<'a> {
+    pub fn from_slice(data: &'a [u8]) -> Option<Tag<'a>> {
+        if data.len() < 8 {
+            None
+        }else{
+            let tag_type: u32 = u32::from_ne_bytes(data[0..4].try_into().unwrap());
+            let tag_size: u32 = u32::from_ne_bytes(data[4..8].try_into().unwrap());
+
+            if data.len() < tag_size as usize {
+                None
+            }else{
+                Some(Tag{
+                    tag_type: TagType::from(tag_type),
+                    current_data: &data[8..(tag_size as usize)],
+                    remaining_data: &data[(tag_size as usize)..]
+                })
+            }
+        }
+    }
+
+    pub fn data(&self) -> &'a [u8]{
+        self.current_data
+    }
+}
+
+impl<'a> Debug for Tag<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self.tag_type {
+            TagType::End => write!(f, "End"),
+            TagType::CommandLine => write!(f, "Command Line '{:?}'", StrDebugFormat::from_cstr(self.current_data)),
+            TagType::BootLoaderName => write!(f, "Boot Loader '{:?}'", StrDebugFormat::from_cstr(self.current_data)),
+            TagType::MemoryMap => write!(f, "Memory Map ({} bytes)", self.current_data.len()),
+            TagType::APMTable => write!(f, "APMTable ({} bytes)", self.current_data.len()),
+            TagType::NetworkInfo => write!(f, "Network Info ({} bytes)", self.current_data.len()),
+            TagType::IMGBaseAddr => write!(f,"IMG Load Base Addr: {:?}", StrDebugFormat::from_u32(self.current_data)),
+            _ => write!(f,"Unknown Tag {:?}", self.tag_type)
+        }
+    }
+}
+
+pub struct MultibootInformationIterator<'a>{
+    current: Option<Tag<'a>>
+}
+
+impl<'a> MultibootInformationIterator<'a>{
+    pub fn from(info: &'a MultibootInformation) -> MultibootInformationIterator<'a> {
+        MultibootInformationIterator{
+            current: Tag::from_slice(&info.data)
+        }
+    }
+
+    pub fn has_next(&self) -> bool{
+        match self.current{
+            Some(_) => true,
+            None => false
+        }
+    }
+}
+
+impl<'a> Iterator for MultibootInformationIterator<'a> {
+    type Item = Tag<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = self.current.take();
+        let tag: Tag;
+
+        if ret.is_none(){
+            return None;
+        }else {
+            tag = ret.unwrap();
+        }
+
+        let pad_size = 8 - (tag.current_data.len() % 8);
+        self.current = Tag::from_slice(&tag.remaining_data[pad_size..]);
+
+        Some(tag)
     }
 }

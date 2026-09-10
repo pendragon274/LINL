@@ -1,4 +1,3 @@
-//use core::cell::OnceCell;
 use crate::memory::memory_map::MemoryMap;
 use crate::vga_display::vga_character::{VGAColorBase, VGAColorCode};
 use crate::vga_display::vga_out_stream::{Write, VGAOutStream};
@@ -14,6 +13,7 @@ use crate::asm_ops::kernel_info::KernelInfo;
 /// TODO: Should implement a heap.
 /// TODO: Implement a paging manager.
 /// TODO: Implement variable that changes kernel virtual address, specifically to higher half.
+/// TODO: Write a panic stack unwinding function.
 ///
 ///
 
@@ -22,12 +22,14 @@ use crate::asm_ops::kernel_info::KernelInfo;
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".kernel.text")]
 pub extern "C" fn kernel_main(kern_info: &KernelInfo) -> !{
+    let mbi = kern_info.get_mbi();
+
     let mut mem_map = MemoryMap::new();
     
     let mut vga_out_stream = VGAOutStream::from_buffer(&mut mem_map, kern_info.vga_buf_ptr);
     emit_pass(&mut vga_out_stream);
 
-    write!(vga_out_stream, "{:?}", kern_info.multiboot_information_ptr).unwrap();
+    write!(vga_out_stream, "{:?}", mbi.get_command_line()).unwrap();
     vga_out_stream.flush();
 
     loop{}
