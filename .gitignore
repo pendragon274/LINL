@@ -1,10 +1,11 @@
 *.bin
-
 *.iso
-
 *.img
+*.lock
+*.old
 
 qemu-test.log
 
 target/
 test/
+.idea/
