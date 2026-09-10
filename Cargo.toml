@@ -1,0 +1,15 @@
+[package]
+name = "linl_os"
+version = "0.0.1"
+edition = "2024"
+authors = ["Cary Phillips"]
+
+[lib]
+crate-type = ["staticlib"]
+harness = false
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

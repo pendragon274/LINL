@@ -1,0 +1,10 @@
+*.bin
+
+*.iso
+
+*.img
+
+qemu-test.log
+
+target/
+test/
