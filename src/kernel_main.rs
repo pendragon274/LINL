@@ -14,6 +14,7 @@ use crate::asm_ops::kernel_info::KernelInfo;
 /// TODO: Implement a paging manager.
 /// TODO: Implement variable that changes kernel virtual address, specifically to higher half.
 /// TODO: Write a panic stack unwinding function.
+/// TODO: Color formatting in VGA write_char and write_str. Use \c escape character with raw string literal.
 ///
 ///
 
@@ -29,7 +30,18 @@ pub extern "C" fn kernel_main(kern_info: &KernelInfo) -> !{
     let mut vga_out_stream = VGAOutStream::from_buffer(&mut mem_map, kern_info.vga_buf_ptr);
     emit_pass(&mut vga_out_stream);
 
-    write!(vga_out_stream, "{:?}", mbi.get_command_line()).unwrap();
+    /*write!(vga_out_stream, "Command Line: {:?}\n", mbi.get_command_line()).unwrap();
+    write!(vga_out_stream, "Boot Loader Name: {:?}\n", mbi.get_boot_loader_name()).unwrap();
+    */
+
+    write!(vga_out_stream, "Memory Map: {:?}\n", mbi.get_memory_map()).unwrap();
+
+    /*write!(vga_out_stream, "APMTable: {:?}\n", mbi.get_apm_table()).unwrap();
+    write!(vga_out_stream, "Network Info: {:?}\n", mbi.get_network_info()).unwrap();
+    write!(vga_out_stream, "IMG Load Base Addr: {:?}\n", mbi.get_img_load_addr()).unwrap();*/
+
+    //write!(vga_out_stream, "{:?}", mbi).unwrap();
+
     vga_out_stream.flush();
 
     loop{}

@@ -1,8 +1,11 @@
 use core::fmt::{Debug, Formatter};
 use core::ptr;
+use crate::asm_ops::multiboot_apm_table::APMTable;
+use crate::asm_ops::multiboot_network_info::NetworkInfo;
+use crate::asm_ops::multiboot_memory_map::MultibootMemoryMap;
 use crate::collections::str_debug_format::StrDebugFormat;
 
-#[repr(C)]
+#[repr(C, align(8))]
 pub struct MultibootInformation {
     total_size: u32,
     reserved: u32,
@@ -10,15 +13,79 @@ pub struct MultibootInformation {
 }
 
 impl MultibootInformation {
-    pub fn get_command_line(&self) -> Option<StrDebugFormat<'_>> {
+    pub fn get_command_line(&self) -> StrDebugFormat<'_> {
         for tag in self.into_iter(){
             match tag.tag_type{
-                TagType::CommandLine => return Some(StrDebugFormat::from_cstr(tag.current_data)),
+                TagType::CommandLine => return StrDebugFormat::from_cstr(tag.current_data),
                 _ => continue
             }
         }
 
-        None
+        StrDebugFormat::from_cstr(&[])
+    }
+
+    pub fn get_boot_loader_name(&self) -> StrDebugFormat<'_>{
+        for tag in self.into_iter(){
+            match tag.tag_type{
+                TagType::BootLoaderName => return StrDebugFormat::from_cstr(tag.current_data),
+                _ => continue
+            }
+        }
+
+        StrDebugFormat::from_cstr(&[])
+    }
+
+    pub fn get_memory_map(&self) -> MultibootMemoryMap<'_> {
+        let mut mem_map: MultibootMemoryMap = MultibootMemoryMap::default();
+        for tag in self.into_iter(){
+            match tag.tag_type{
+                TagType::MemoryMap => {
+                    mem_map = MultibootMemoryMap::from_tag(&tag);
+                    break;
+                }, _ => continue
+            }
+        }
+
+        mem_map
+    }
+
+    pub fn get_apm_table(&self) -> APMTable{
+        let mut apm_table: APMTable = APMTable::default();
+        for tag in self.into_iter(){
+            match tag.tag_type{
+                TagType::APMTable => {
+                    apm_table = APMTable::from_tag(&tag);
+                }, _ => continue
+            }
+        }
+
+        apm_table
+    }
+
+    pub fn get_network_info(&self) -> NetworkInfo<'_>{
+        let mut network_info = NetworkInfo::default();
+        for tag in self.into_iter(){
+            match tag.tag_type{
+                TagType::NetworkInfo => {
+                    network_info = NetworkInfo::from_tag(&tag);
+                }, _ => continue
+            }
+        }
+
+        network_info
+    }
+
+    pub fn get_img_load_addr(&self) -> u32{
+        let mut ret = 0;
+        for tag in self.into_iter(){
+            match tag.tag_type{
+                TagType::IMGBaseAddr => {
+                    ret = u32::from_ne_bytes(tag.data()[0..4].try_into().unwrap());
+                }, _ => continue
+            }
+        }
+
+        ret
     }
 }
 
@@ -43,7 +110,7 @@ impl<'a> IntoIterator for &'a MultibootInformation {
 
 impl Debug for MultibootInformation {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "MBI{{")?;
+        write!(f, "MBI (Total Size: {}, Data Len: {}){{", self.total_size, self.data.len())?;
 
         for tag in self.into_iter() {
             write!(f, "{:?}, ", tag)?;
@@ -54,6 +121,48 @@ impl Debug for MultibootInformation {
         Ok(())
     }
 }
+
+// ***** MultibootInformationIterator *****
+
+pub struct MultibootInformationIterator<'a>{
+    current: Option<Tag<'a>>
+}
+
+impl<'a> MultibootInformationIterator<'a>{
+    pub fn from(info: &'a MultibootInformation) -> MultibootInformationIterator<'a> {
+        MultibootInformationIterator{
+            current: Tag::from_slice(&info.data)
+        }
+    }
+
+    pub fn has_next(&self) -> bool{
+        match self.current{
+            Some(_) => true,
+            None => false
+        }
+    }
+}
+
+impl<'a> Iterator for MultibootInformationIterator<'a> {
+    type Item = Tag<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = self.current.take();
+        let tag: Tag;
+
+        if ret.is_none(){
+            return None;
+        }else {
+            tag = ret.unwrap();
+        }
+
+        self.current = Tag::from_slice(&tag.remaining_data[0..]);
+
+        Some(tag)
+    }
+}
+
+// ***** Tag *****
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
@@ -96,18 +205,20 @@ impl<'a> Tag<'a> {
         }else{
             let tag_type: u32 = u32::from_ne_bytes(data[0..4].try_into().unwrap());
             let tag_size: u32 = u32::from_ne_bytes(data[4..8].try_into().unwrap());
+            let padding: u32 = 8 - tag_size % 8;
 
-            if data.len() < tag_size as usize {
+            if data.len() <= (padding + tag_size) as usize {
                 None
             }else{
                 Some(Tag{
                     tag_type: TagType::from(tag_type),
                     current_data: &data[8..(tag_size as usize)],
-                    remaining_data: &data[(tag_size as usize)..]
+                    remaining_data: &data[((padding + tag_size) as usize)..]
                 })
             }
         }
     }
+
 
     pub fn data(&self) -> &'a [u8]{
         self.current_data
@@ -126,44 +237,5 @@ impl<'a> Debug for Tag<'a> {
             TagType::IMGBaseAddr => write!(f,"IMG Load Base Addr: {:?}", StrDebugFormat::from_u32(self.current_data)),
             _ => write!(f,"Unknown Tag {:?}", self.tag_type)
         }
-    }
-}
-
-pub struct MultibootInformationIterator<'a>{
-    current: Option<Tag<'a>>
-}
-
-impl<'a> MultibootInformationIterator<'a>{
-    pub fn from(info: &'a MultibootInformation) -> MultibootInformationIterator<'a> {
-        MultibootInformationIterator{
-            current: Tag::from_slice(&info.data)
-        }
-    }
-
-    pub fn has_next(&self) -> bool{
-        match self.current{
-            Some(_) => true,
-            None => false
-        }
-    }
-}
-
-impl<'a> Iterator for MultibootInformationIterator<'a> {
-    type Item = Tag<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let ret = self.current.take();
-        let tag: Tag;
-
-        if ret.is_none(){
-            return None;
-        }else {
-            tag = ret.unwrap();
-        }
-
-        let pad_size = 8 - (tag.current_data.len() % 8);
-        self.current = Tag::from_slice(&tag.remaining_data[pad_size..]);
-
-        Some(tag)
     }
 }
