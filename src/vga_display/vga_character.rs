@@ -24,6 +24,7 @@ pub enum VGAColorBase{
 #[repr(transparent)]
 pub struct VGAColorCode(pub u8);
 
+#[allow(dead_code)]
 impl VGAColorCode{
     pub fn val(&self) -> u8{
         self.0

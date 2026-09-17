@@ -22,7 +22,7 @@ if [ $exit_code -eq 0 ]; then
 		rm pre_long_vga_out_stream.o
 		rm pre_long_core_dump.o
 		#rm kernel_main.o
-		grub-mkrescue -o linl.iso isofiles &>/dev/null
+		grub-mkrescue -o linl.iso isofiles >/dev/null 2>&1
 		#grub-mkrescue /usr/lib/grub/i386-pc -o linl.iso isofiles
 		qemu-system-x86_64 -D ./qemu-test.log -d cpu,exec,int -drive file=test/test_drive.img,format=raw,media=disk -drive file=linl.iso,format=raw,media=cdrom -no-reboot -no-shutdown -m 6G -cpu host -monitor stdio -enable-kvm
 		#qemu-system-x86_64 -D ./qemu-test.log -d cpu,exec,int -drive file=linl.iso,format=raw,media=cdrom -no-reboot -no-shutdown -m 6G -cpu host -monitor stdio -enable-kvm

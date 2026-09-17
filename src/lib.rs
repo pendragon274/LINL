@@ -3,6 +3,7 @@
 #![allow(static_mut_refs)]
 #![no_std]
 #![no_main]
+#![macro_use]
 
 mod kernel_main;
 mod panic;

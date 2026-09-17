@@ -45,6 +45,7 @@ pub struct MemoryMap{
     segments_reserved: LinkedArray<(*const c_void, usize), 10>
 }
 
+#[allow(dead_code)]
 impl MemoryMap{
     // ***** Public Functions *****
     pub fn borrow_segment<'a, 'b>(&'b mut self, start: *const u8, len: usize) -> RawMemSegment<'a>{
@@ -56,11 +57,11 @@ impl MemoryMap{
         }
     }
 
-    pub fn return_segment<'a>(&mut self, segment: RawMemSegment<'a>){
+    pub fn return_segment<'a>(&mut self, _segment: RawMemSegment<'a>){
         todo!()
     }
 
-    pub fn set_available_memory(&mut self, multiboot_memory_map: &MultibootMemoryMap){
+    pub fn set_available_memory(&mut self, _multiboot_memory_map: &MultibootMemoryMap){
 
     }
 

@@ -1,5 +1,6 @@
 use crate::asm_ops::multiboot_information::Tag;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct NetworkInfo<'a>{
     dhcp_ack: &'a [u8]

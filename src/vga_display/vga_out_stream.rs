@@ -4,10 +4,40 @@ use crate::memory::raw_mem_segment::RawMemSegment;
 use crate::vga_display::vga_character::{VGACharacter, VGAColorCode};
 use crate::vga_display::vga_out_buffer::VGAOutBuffer;
 
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ({
+        use core::fmt::Write;
+        use crate::collections::globals::Globals;
+        let vga_stream = Globals::get_mut().get_vga_out_stream().unwrap();
+        vga_stream.write_fmt(format_args!($($arg)*)).unwrap();
+        vga_stream.flush();
+    });
+}
+
+#[macro_export]
+macro_rules! println {
+    () => {
+        use crate::print;
+        print!("\n");
+    };
+    ($fmt:expr) => {
+        use crate::print;
+        print!(concat!($fmt, "\n"));
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        use crate::print;
+        print!(concat!($fmt, "\n"), $($arg)*);
+    };
+}
+
 #[allow(dead_code)]
 pub struct VGAOutStream<'a>{
     vga_mem: RawMemSegment<'a>,
-    out_buffer: VGAOutBuffer
+    out_buffer: VGAOutBuffer,
+    reading_escape: bool,
+    escape_len: usize,
+    escape_code_read: [char; 3]
 }
 
 #[allow(dead_code)]
@@ -50,8 +80,42 @@ impl<'a> VGAOutStream<'a>{
     }
 
     pub fn write_char(&mut self, c: char) {
-        if c == '\n'{
+        if c == '\n' {
             self.shift_lines();
+        }else if self.reading_escape {
+            if self.escape_len == 0{
+                if c == 'c' {
+                    self.escape_code_read[0] = c;
+                    self.escape_len += 1;
+                }else{
+                    self.reading_escape = false;
+                }
+            }else if self.escape_len == 1{
+                if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'){
+                    self.escape_code_read[1] = c;
+                    self.escape_len += 1;
+                }else{
+                    self.reading_escape = false;
+                }
+            }else if self.escape_len == 2{
+                if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'){
+                    self.escape_code_read[2] = c;
+                    self.escape_len += 1;
+
+                    let val: u8;
+                    let higher: u8 = Self::single_hex_to_u8(self.escape_code_read[1]);
+                    let lower: u8 = Self::single_hex_to_u8(self.escape_code_read[2]);
+                    val = (higher * 16) + lower;
+
+                    self.set_color(VGAColorCode(val));
+                    self.reading_escape = false;
+                }else{
+                    self.reading_escape = false;
+                }
+            }
+        }else if c == '\\'{
+            self.escape_len = 0;
+            self.reading_escape = true;
         }else{
             let character = VGACharacter::new(c, self.out_buffer.current_color);
             self.out_buffer.buffer[(80*24) + (self.out_buffer.cursor_position/2) as usize] = character;
@@ -122,32 +186,54 @@ impl<'a> VGAOutStream<'a>{
         self.out_buffer.cursor_position = 0;
     }
 
+    fn single_hex_to_u8(c: char) -> u8{
+        if c >= '0' && c <= '9'{
+            c as u8 - '0' as u8
+        }else if c >= 'a' && c <= 'f'{
+            c as u8 - 'a' as u8 + 10
+        }else{
+            c as u8 - 'A' as u8 + 10
+        }
+    }
+
     // ***** Struct Init *****
     pub fn with_segment<'c>(segment: RawMemSegment<'c>) -> VGAOutStream<'c>{
         VGAOutStream::<'c>{
             vga_mem: segment,
-            out_buffer: VGAOutBuffer::default()
+            out_buffer: VGAOutBuffer::default(),
+            reading_escape: false,
+            escape_len: 0,
+            escape_code_read: [0 as char, 0 as char, 0 as char]
         }
     }
 
     pub fn with_segment_and_buffer<'c>(segment: RawMemSegment<'c>, buf: &VGAOutBuffer) -> VGAOutStream<'c>{
         VGAOutStream::<'c>{
             vga_mem: segment,
-            out_buffer: buf.clone()
+            out_buffer: buf.clone(),
+            reading_escape: false,
+            escape_len: 0,
+            escape_code_read: [0 as char, 0 as char, 0 as char]
         }
     }
 
     pub fn from_buffer<'b>(mem_map: &mut MemoryMap, buf: &VGAOutBuffer) -> VGAOutStream<'b>{
         VGAOutStream {
             vga_mem: mem_map.borrow_segment(0xb8000 as *const u8, 160 * 25),
-            out_buffer: buf.clone()
+            out_buffer: buf.clone(),
+            reading_escape: false,
+            escape_len: 0,
+            escape_code_read: [0 as char, 0 as char, 0 as char]
         }
     }
 
     pub fn from_map(mem_map: &mut MemoryMap) -> VGAOutStream<'_>{
         VGAOutStream{
             vga_mem: mem_map.borrow_segment(0xb8000 as *const u8, 160 * 25),
-            out_buffer: VGAOutBuffer::default()
+            out_buffer: VGAOutBuffer::default(),
+            reading_escape: false,
+            escape_len: 0,
+            escape_code_read: [0 as char, 0 as char, 0 as char]
         }
     }
 }
