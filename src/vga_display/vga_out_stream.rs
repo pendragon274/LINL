@@ -139,14 +139,14 @@ impl<'a> VGAOutStream<'a>{
 
     pub fn from_buffer<'b>(mem_map: &mut MemoryMap, buf: &VGAOutBuffer) -> VGAOutStream<'b>{
         VGAOutStream {
-            vga_mem: mem_map.borrow_segment(0xb8000, 160 * 25),
+            vga_mem: mem_map.borrow_segment(0xb8000 as *const u8, 160 * 25),
             out_buffer: buf.clone()
         }
     }
 
     pub fn from_map(mem_map: &mut MemoryMap) -> VGAOutStream<'_>{
         VGAOutStream{
-            vga_mem: mem_map.borrow_segment(0xb8000, 160 * 25),
+            vga_mem: mem_map.borrow_segment(0xb8000 as *const u8, 160 * 25),
             out_buffer: VGAOutBuffer::default()
         }
     }

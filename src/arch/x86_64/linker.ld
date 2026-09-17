@@ -1,14 +1,20 @@
 ENTRY(_start)
 
 KERN_PHYSICAL = 0x00400000;
+KERN_STACK_SIZE = 0x00200000;
 KERN_VIRTUAL = 0xC0000000;
-KERN_SIZE = 0x10000000;
+KERN_SIZE = 0x00100000;
+KERN_PHYSICAL_HEAP = KERN_PHYSICAL + KERN_SIZE + KERN_STACK_SIZE;
+KERN_VIRTUAL_HEAP = KERN_VIRTUAL + KERN_SIZE + KERN_STACK_SIZE;
+HEAP_SIZE = 0x10000000;
 
 MEMORY
 {
     pre_long_mode (ax) : ORIGIN = 0x00200000, LENGTH = 0x00200000
-    kernel_physical (ax) : ORIGIN = KERN_PHYSICAL, LENGTH = KERN_SIZE
-    kernel_virtual (ax) : ORIGIN = KERN_VIRTUAL, LENGTH = KERN_SIZE
+    kernel_physical (ax) : ORIGIN = KERN_PHYSICAL, LENGTH = KERN_SIZE + KERN_STACK_SIZE
+    kernel_physical_heap (rw) : ORIGIN = KERN_PHYSICAL_HEAP, LENGTH = HEAP_SIZE
+    kernel_virtual (ax) : ORIGIN = KERN_VIRTUAL, LENGTH = KERN_SIZE + KERN_STACK_SIZE
+    kernel_virtual_heap (rw) : ORIGIN = KERN_VIRTUAL_HEAP, LENGTH = HEAP_SIZE
 }
 
 PHDRS
@@ -25,8 +31,9 @@ PHDRS
     kernel_rust_internals PT_LOAD FLAGS(4);
     kernel_throwaway PT_LOAD FLAGS(4);
     kernel_remainder PT_LOAD FLAGS(5);
+    kernel_heap PT_LOAD FLAGS(6);
     kernel_stack_lid PT_LOAD FLAGS(4);
-    kernel_stack PT_LOAD FLAGS(6);
+    kernel_stack PT_GNU_STACK FLAGS(6);
 }
 
 PRE_KERN_START = 2M;
@@ -79,6 +86,7 @@ SECTIONS{
         *(.data)
         *(.data.*)
         *(.ldata.*)
+        *(.bss.*)
     } > kernel_virtual AT> kernel_physical :kernel_data
 
     .kernel_rodata : ALIGN(4K)
@@ -88,7 +96,7 @@ SECTIONS{
         *(.lrodata.*)
     } > kernel_virtual AT> kernel_physical :kernel_rodata
 
-    .kernel_rust_internels : ALIGN(4K)
+    .kernel_rust_internals : ALIGN(4K)
     {
         *(.got)
         *(.got.plt)
@@ -98,33 +106,30 @@ SECTIONS{
     .kernel_throwaway : ALIGN(4K)
     {
         *(.comment)
-
-        /*LONG(0);
-        FILL(0);
-        . = ALIGN(4K);*/
+        *(.kernel.throwaway)
     } > kernel_virtual AT> kernel_physical :kernel_throwaway
 
     .kernel_remainder : ALIGN(4k)
     {
-        /*LONG(0);
-        FILL(0);
-        . = ALIGN(4K);*/
     } > kernel_virtual AT> kernel_physical :kernel_remainder
 
     .kernel_stack_lid : ALIGN(4K)
     {
-        LONG(0);
-        FILL(0);
-        . = ALIGN(4K);
+        /*KEEP(*(.kernel.stack.guard))*/
+        . += 4K;
     } > kernel_virtual AT> kernel_physical :kernel_stack_lid
 
     .kernel_stack : ALIGN(4K)
     {
         KERNEL_STACK_BOTTOM = .;
-        FILL(0);
-        /*. += 256M;*/
-        /*. += (KERN_SIZE - (KERNEL_STACK_TOP + KERN_START));*/
-        . = ALIGN(KERN_SIZE);
+        . += KERN_STACK_SIZE;
         KERNEL_STACK_TOP = .;
     } > kernel_virtual AT> kernel_physical :kernel_stack
+
+    .kernel_heap : ALIGN(4K)
+    {
+        KERNEL_HEAP_START = .;
+        . += HEAP_SIZE;
+        KERNEL_HEAP_END = .;
+    } > kernel_virtual_heap AT> kernel_physical_heap :kernel_heap
 }

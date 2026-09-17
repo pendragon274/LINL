@@ -6,14 +6,6 @@ pub struct RawMemSegment<'a>{
 }
 
 impl<'a> RawMemSegment<'a>{
-    /*pub fn write_at(&mut self, index: usize, to_write: &[u8]){
-        let mut i = 0;
-        for byte in to_write{
-            self.mem[i + index] = byte.clone();
-            i += 1;
-        }
-    }*/
-
     pub fn write_at(&mut self, index: usize, to_write: &[u8]){
         unsafe { core::ptr::copy_nonoverlapping(to_write.as_ptr(), ((self.mem.as_mut_ptr() as usize) + index) as *mut u8, to_write.len()) ; }
     }
@@ -44,5 +36,11 @@ impl Index<usize> for RawMemSegment<'_>{
 impl IndexMut<usize> for RawMemSegment<'_>{
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.mem[index]
+    }
+}
+
+impl Drop for RawMemSegment<'_>{
+    fn drop(&mut self){
+        todo!()
     }
 }

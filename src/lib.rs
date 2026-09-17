@@ -1,4 +1,6 @@
 #![feature(ptr_metadata)]
+#![feature(once_cell_get_mut)]
+#![allow(static_mut_refs)]
 #![no_std]
 #![no_main]
 

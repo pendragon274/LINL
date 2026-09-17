@@ -327,6 +327,13 @@ EnterKernel:
     mov $KERNEL_STACK_TOP, %esp
     mov $KERNEL_STACK_TOP, %ebp
 
+    mov $0, %ax
+    mov %ax, %ss
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+
     movq $asm_kern_info, %rdi
 
     movl $kernel_main, %eax
@@ -406,6 +413,10 @@ gdt_64.pointer:
 asm_kern_info:
     asm_kern_info.vga_buffer:                   .quad VGA_Out_Buffer
     asm_kern_info.multiboot_information_ptr:    .quad 0
+    asm_kern_info.stack_bottom:                 .quad KERNEL_STACK_BOTTOM
+    asm_kern_info.stack_top:                    .quad KERNEL_STACK_TOP
+    asm_kern_info.heap_start:                   .quad KERNEL_HEAP_START
+    asm_kern_info.heap_end:                     .quad KERNEL_HEAP_END
 
 .section .pre_long_bss, "aw", @nobits
 p4_table: .space            4096
@@ -415,10 +426,7 @@ kernel_p2: .space           4096
 pre_long_stack_top: .space  4096
     pre_long_stack_bottom:
 
-/*
-.section .kernel.stack, "aw", @nobits
-kernel_stack_top: .space 4096
-    kernel_stack_bottom:
-*/
+//.section .kernel.stack.guard, "a", @progbits
+//stack_guard: .space 4096
 
 .section .note.GNU-stack,"",@progbits

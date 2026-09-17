@@ -1,4 +1,5 @@
 use core::ffi::c_void;
+use crate::asm_ops::multiboot_memory_map::MultibootMemoryMap;
 use crate::collections::linked_array::LinkedArray;
 use crate::memory::raw_mem_segment::RawMemSegment;
 
@@ -41,11 +42,12 @@ impl<'a> MemoryMap<'a> {
 
 #[allow(dead_code)]
 pub struct MemoryMap{
-    segments_reserved: LinkedArray<(*const c_void, *const c_void), 10>
+    segments_reserved: LinkedArray<(*const c_void, usize), 10>
 }
 
 impl MemoryMap{
-    pub fn borrow_segment<'a>(&mut self, start: usize, len: usize) -> RawMemSegment<'a>{
+    // ***** Public Functions *****
+    pub fn borrow_segment<'a, 'b>(&'b mut self, start: *const u8, len: usize) -> RawMemSegment<'a>{
         //Should check to ensure memory slot is currently unreserved.
         //Should also "reserve" the segment if it is available.
 
@@ -54,6 +56,17 @@ impl MemoryMap{
         }
     }
 
+    pub fn return_segment<'a>(&mut self, segment: RawMemSegment<'a>){
+        todo!()
+    }
+
+    pub fn set_available_memory(&mut self, multiboot_memory_map: &MultibootMemoryMap){
+
+    }
+
+    // ***** Private Functions *****
+
+    // ***** Struct Init *****
     pub fn new() -> MemoryMap{
         MemoryMap{
             segments_reserved: LinkedArray::new()
