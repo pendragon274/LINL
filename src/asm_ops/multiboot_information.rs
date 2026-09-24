@@ -87,6 +87,10 @@ impl MultibootInformation {
 
         ret
     }
+
+    pub fn data(&self) -> &[u8]{
+        &self.data
+    }
 }
 
 impl<'a> From<*const MultibootInformation> for &'a MultibootInformation {
@@ -173,6 +177,7 @@ pub enum TagType{
     MemoryMap = 6,
     APMTable = 10,
     NetworkInfo = 16,
+    EFIMemoryMap = 17,
     IMGBaseAddr = 21,
     Unknown = 99
 }
@@ -186,6 +191,7 @@ impl From<u32> for TagType{
             6 => TagType::MemoryMap,
             10 => TagType::APMTable,
             16 => TagType::NetworkInfo,
+            17 => TagType::EFIMemoryMap,
             21 => TagType::IMGBaseAddr,
             _ => TagType::Unknown
         }
@@ -234,6 +240,7 @@ impl<'a> Debug for Tag<'a> {
             TagType::MemoryMap => write!(f, "Memory Map ({} bytes)", self.current_data.len()),
             TagType::APMTable => write!(f, "APMTable ({} bytes)", self.current_data.len()),
             TagType::NetworkInfo => write!(f, "Network Info ({} bytes)", self.current_data.len()),
+            TagType::EFIMemoryMap => write!(f, "EFI Memory Map ({} bytes)", self.current_data.len()),
             TagType::IMGBaseAddr => write!(f,"IMG Load Base Addr: {:?}", StrDebugFormat::from_u32(self.current_data)),
             _ => write!(f,"Unknown Tag {:?}", self.tag_type)
         }

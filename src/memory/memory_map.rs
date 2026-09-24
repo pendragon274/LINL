@@ -1,76 +1,60 @@
-use core::ffi::c_void;
 use crate::asm_ops::multiboot_memory_map::MultibootMemoryMap;
-use crate::collections::linked_array::LinkedArray;
+use crate::collections::linked_array::{BasicCollection, LinkedArray};
 use crate::memory::raw_mem_segment::RawMemSegment;
+use crate::println;
 
-/*#[repr(transparent)]
-pub struct MemoryMap<'a>{
-    my_segment: [RawMemSegment<'a>; 10]
-}
+const ARR_SIZE: usize = 30;
 
 #[allow(dead_code)]
-impl<'a> MemoryMap<'a>{
-    pub unsafe fn own_segment(&mut self, start: usize, len: usize) -> RawMemSegment<'_>{
-        unsafe { RawMemSegment::new(start as *mut u8, len) }
-    }
-
-    pub unsafe fn borrow_segment(&mut self, start: usize, len: usize) -> &'a mut RawMemSegment<'a> {
-        let segment = RawMemSegment::new(start as *mut u8, len);
-        self.
-        self.my_segment = &mut RawMemSegment::new(start as *mut u8, len);
-        unsafe { &mut *self.my_segment }
-    }
-
-    pub fn new<'b>() -> MemoryMap<'b>{
-        MemoryMap{
-            my_segment: 0 as *mut RawMemSegment
-        }
-    }
-}*/
-
-/*pub struct MemoryMap<'a>{
-    segments: LinkedArray<RawMemSegment<'a>, 10>
-}
-
-impl<'a> MemoryMap<'a> {
-    pub fn new() -> MemoryMap<'a> {
-        MemoryMap{
-            segments: LinkedArray::new()
-        }
-    }
-}*/
-
-#[allow(dead_code)]
+#[derive(Debug)]
 pub struct MemoryMap{
-    segments_reserved: LinkedArray<(*const c_void, usize), 10>
+    segments_available: LinkedArray<(*const u8, usize), ARR_SIZE>,
+    segments_reserved: LinkedArray<(*const u8, usize), ARR_SIZE>
 }
 
-#[allow(dead_code)]
 impl MemoryMap{
     // ***** Public Functions *****
     pub fn borrow_segment<'a, 'b>(&'b mut self, start: *const u8, len: usize) -> RawMemSegment<'a>{
         //Should check to ensure memory slot is currently unreserved.
         //Should also "reserve" the segment if it is available.
 
+        println!("Segment borrowed: Address: {:x}, Length: {:x}", start as usize, len);
+
         unsafe {
             RawMemSegment::new(start as *mut u8, len)
         }
     }
 
-    pub fn return_segment<'a>(&mut self, _segment: RawMemSegment<'a>){
-        todo!()
+    pub fn return_segment<'a>(&mut self, segment: &mut RawMemSegment<'a>){
+        println!("Segment returned: Address: {}, Length: {}", segment.addr(), segment.len());
     }
 
+    /*
     pub fn set_available_memory(&mut self, _multiboot_memory_map: &MultibootMemoryMap){
 
-    }
+    }*/
 
     // ***** Private Functions *****
 
     // ***** Struct Init *****
-    pub fn new() -> MemoryMap{
+    pub fn from_mbi(mbi: &MultibootMemoryMap) -> MemoryMap{
+        let mut available: LinkedArray<(*const u8, usize), ARR_SIZE> = LinkedArray::new();
+        for item in mbi.into_iter(){
+            if item.mem_type() == 1{
+                available.append((item.base_addr() as *const u8, item.length() as usize));
+            }
+        }
         MemoryMap{
+            segments_available: available,
             segments_reserved: LinkedArray::new()
         }
     }
+
+    /*
+    pub fn new() -> MemoryMap{
+        MemoryMap{
+            segments_available: LinkedArray::new(),
+            segments_reserved: LinkedArray::new()
+        }
+    }*/
 }

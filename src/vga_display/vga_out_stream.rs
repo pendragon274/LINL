@@ -1,33 +1,31 @@
-pub use core::fmt::Write;
 use crate::memory::memory_map::MemoryMap;
 use crate::memory::raw_mem_segment::RawMemSegment;
 use crate::vga_display::vga_character::{VGACharacter, VGAColorCode};
 use crate::vga_display::vga_out_buffer::VGAOutBuffer;
+use core::fmt::Write;
 
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ({
         use core::fmt::Write;
-        use crate::collections::globals::Globals;
-        let vga_stream = Globals::get_mut().get_vga_out_stream().unwrap();
-        vga_stream.write_fmt(format_args!($($arg)*)).unwrap();
-        vga_stream.flush();
+        let vga_stream_opt = crate::collections::globals::Globals::get_vga_out_stream();
+        if let Some(vga_stream) = vga_stream_opt {
+            vga_stream.write_fmt(format_args!($($arg)*)).unwrap();
+            vga_stream.flush();
+        }
     });
 }
 
 #[macro_export]
 macro_rules! println {
     () => {
-        use crate::print;
-        print!("\n");
+        crate::print!("\n");
     };
     ($fmt:expr) => {
-        use crate::print;
-        print!(concat!($fmt, "\n"));
+        crate::print!(concat!($fmt, "\n"));
     };
     ($fmt:expr, $($arg:tt)*) => {
-        use crate::print;
-        print!(concat!($fmt, "\n"), $($arg)*);
+        crate::print!(concat!($fmt, "\n"), $($arg)*);
     };
 }
 

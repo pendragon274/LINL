@@ -99,6 +99,18 @@ pub struct MultibootMemoryMapEntry<'a>{
 }
 
 impl<'a> MultibootMemoryMapEntry<'a>{
+    pub fn mem_type(&self) -> u32{
+        self.mem_type
+    }
+
+    pub fn base_addr(&self) -> u64{
+        self.base_addr
+    }
+
+    pub fn length(&self) -> u64{
+        self.length
+    }
+
     pub fn from_slice(data: &'a [u8]) -> Option<MultibootMemoryMapEntry<'a>>{
         if data.len() < 24{
             None
